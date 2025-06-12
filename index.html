@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>World's Easiest Game</title>
+  <style>
+    body {
+        background: linear-gradient(#000000, #330000);
+        margin: 0;
+        height: 100vh;
+        overflow: hidden;
+        position: relative;
+        font-family: Arial, sans-serif;
+        touch-action: none;
+        user-select: none;
+    }
+    #welcome-screen {
+        text-align: center;
+        padding-top: 100px;
+        color: white;
+    }
+    #title {
+        font-size: 36px;
+        color: red;
+        text-shadow: 4px 4px 8px rgba(255, 0, 0, 0.5);
+        font-weight: bold;
+    }
+    #para {
+        margin: 20px auto;
+        padding: 20px;
+        font-size: 30px;
+        font-weight: bold;
+        color: #330000;
+        font-family: 'Courier New', Courier, monospace;
+        background-color: #fd0404;
+        border: 2px solid #fff;
+        border-radius: 25px;
+        width: 60%;
+        text-shadow: 2px 2px 4px rgba(255, 0, 0, 0.5);
+    }
+
+    #para button {
+      font-size: 30px;
+      font-weight: bold;
+      font-family: 'Courier New', Courier, monospace;
+      background: transparent;
+      color: #330000;
+      border: none;
+      cursor: pointer;
+    }
+
+    #btn {
+      background-color: cyan;
+      width: 200px;
+      height: 50px;
+      color: black;
+      font-size: 28px;
+      font-weight: bold;
+      position: absolute;
+      top: 60%;
+      left: 50%;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      transition: top 0.3s ease, left 0.3s ease, opacity 0.3s ease;
+      z-index: 10;
+    }
+    #fake-cursor, #guardian-cursor {
+      width: 32px;
+      height: 32px;
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/2/24/Cursor_white_arrow.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      position: absolute;
+      z-index: 999;
+      pointer-events: none;
+    }
+
+    #countdown {
+      font-size: 24px;
+      margin-top: 20px;
+      color: white;
+    }
+
+    #fake-error {
+      display: none;
+      position: fixed;
+      top: 30%;
+      left: 10%;
+      width: 80%;
+      padding: 30px;
+      background: #111;
+      color: red;
+      font-size: 28px;
+      border: 3px solid red;
+      text-align: center;
+      z-index: 1000;
+    }
+    #restart-btn {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 15px 30px;
+  font-size: 22px;
+  font-weight: bold;
+  background-color: limegreen;
+  color: black;
+  border: 3px solid white;
+  border-radius: 10px;
+  cursor: pointer;
+  display: none;
+  z-index: 1001;
+  box-shadow: 0 0 10px lime;
+}
+  </style>
+</head>
+<body>
+
+  <div id="welcome-screen">
+    <h1 id="title">WELCOME TO THE WORLD'S EASIEST GAME.</h1>
+    <p id="para">The Game is Simply you just Click the <button onclick="winGame()">PLAY</button> button you will Win the Game.</p>
+    <div id="countdown">Time left: 70s</div>
+  </div>
+
+  <button id="btn" onclick="triggerFakeError()">Play</button>
+  <div id="fake-cursor"></div>
+  <div id="guardian-cursor"></div>
+  <div id="fake-error"></div>
+  <button id="restart-btn" style="display: none;" onclick="restartGame()">Restart Game</button>
+
+  <script>
+    const paragraph = document.getElementById('para');
+    const title = document.getElementById('title');
+    const playButton = document.getElementById('btn');
+    const fakeCursor = document.getElementById('fake-cursor');
+    const guardianCursor = document.getElementById('guardian-cursor');
+    const countdownDisplay = document.getElementById('countdown');
+    const fakeErrorBox = document.getElementById('fake-error');
+
+    const taunts = [
+      "You can't catch me!",
+      "Try harder!",
+      "Getting frustrated yet?",
+      "The button is alive!",
+      "Close, but not enough!"
+    ];
+
+    const paragraphTexts = [
+      'Click the<button style=" text-decoration: none;" onclick="winGame()">PLAY</button>button... if you can!',
+      "The button is smarter than you.",
+      "This is the world's easiest game... or is it?",
+      "No tricks? Think again."
+    ];
+
+    let currentIndex = 0;
+    function changeParagraph() {
+      paragraph.innerHTML = paragraphTexts[currentIndex];
+      currentIndex = (currentIndex + 1) % paragraphTexts.length;
+    }
+
+    changeParagraph();
+    setInterval(changeParagraph, 6000);
+
+    function speak(text) {
+      speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.pitch = 1;
+      utterance.rate = 1;
+      utterance.volume = 1;
+      speechSynthesis.speak(utterance);
+    }
+
+    let guardingEnabled = true;
+    let teleportingEnabled = true;
+    let gameWon = false;
+    let timeLeft = 70;
+
+    const countdownInterval = setInterval(() => {
+      timeLeft--;
+      countdownDisplay.textContent = `Time left: ${timeLeft}s`;
+
+      if (timeLeft <= 0 && !gameWon) {
+        guardingEnabled = false;
+        teleportingEnabled = false;
+        speak("You're free now... or are you?");
+      }
+
+      if (timeLeft <= 0 && !gameWon && timeLeft >= -5) {
+        countdownDisplay.textContent = "You can now try to click!";
+      }
+
+      if (timeLeft <= -5 && !gameWon) {
+        clearInterval(countdownInterval);
+        loseGame();
+      }
+    }, 1000);
+
+    function patrolFakeCursor() {
+      if (!guardingEnabled) return;
+
+      const buttonRect = playButton.getBoundingClientRect();
+      const centerX = buttonRect.left + buttonRect.width / 2;
+      const centerY = buttonRect.top + buttonRect.height / 2;
+
+      const angle = Date.now() / 500;
+      const radius = 100;
+
+      const x = centerX + radius * Math.cos(angle);
+      const y = centerY + radius * Math.sin(angle);
+
+      fakeCursor.style.left = `${x}px`;
+      fakeCursor.style.top = `${y}px`;
+
+      requestAnimationFrame(patrolFakeCursor);
+    }
+
+    patrolFakeCursor();
+
+    function guardButton(event) {
+      const buttonRect = playButton.getBoundingClientRect();
+      const mouseX = event.clientX;
+      const mouseY = event.clientY;
+      const distance = Math.hypot(buttonRect.left - mouseX, buttonRect.top - mouseY);
+
+      if (guardingEnabled && distance < 150) {
+        const guardX = (mouseX + buttonRect.left) / 2;
+        const guardY = (mouseY + buttonRect.top) / 2;
+
+        fakeCursor.style.left = `${guardX}px`;
+        fakeCursor.style.top = `${guardY}px`;
+
+        if (!speechSynthesis.speaking) {
+          speak(taunts[Math.floor(Math.random() * taunts.length)]);
+        }
+
+        const offsetX = (Math.random() - 0.5) * 200;
+        const offsetY = (Math.random() - 0.5) * 200;
+        let newLeft = buttonRect.left + offsetX;
+        let newTop = buttonRect.top + offsetY;
+
+        newLeft = Math.max(0, Math.min(window.innerWidth - 220, newLeft));
+        newTop = Math.max(0, Math.min(window.innerHeight - 100, newTop));
+
+        playButton.style.left = `${newLeft}px`;
+        playButton.style.top = `${newTop}px`;
+      } else if (teleportingEnabled && Math.random() < 0.20) {
+        teleportButton();
+      }
+    }
+
+    function teleportButton() {
+      playButton.style.opacity = 0;
+      setTimeout(() => {
+        const newX = Math.random() * (window.innerWidth - 220);
+        const newY = Math.random() * (window.innerHeight - 100);
+        playButton.style.left = `${newX}px`;
+        playButton.style.top = `${newY}px`;
+        playButton.style.opacity = 1;
+      }, 3000);
+    }
+
+    function triggerFakeError() {
+      speak("Hahahaha! You really thought that was it?");
+      const username = navigator.userAgent.includes("Windows") ? "Windows User" : "Mobile User";
+
+      fakeErrorBox.textContent = `💀 Your device is hacked, ${username}! 💀`;
+      fakeErrorBox.style.display = "block";
+
+      setTimeout(() => {
+        fakeErrorBox.textContent += "\nJust kidding... or am I?";
+        speak("Your device is hacked... Just kidding. Or am I?");
+      }, 3000);
+    }
+
+    function winGame() {
+      gameWon = true;
+      clearInterval(countdownInterval);
+      speak("No way! You actually found the real button? Well done!");
+      title.textContent = "Congratulations! You Win!";
+      paragraph.innerHTML = "You have successfully completed the world's hardest easiest game!";
+      playButton.style.display = 'none';
+      countdownDisplay.style.display = 'none';
+      fakeCursor.style.display = 'none';
+      guardianCursor.style.display = 'none';
+      fakeErrorBox.style.display = 'none';
+      document.getElementById('restart-btn').style.display = 'block';
+    }
+
+    function loseGame() {
+      playButton.style.display = 'none';
+      title.textContent = "You Lost the World's Easiest Game!";
+      paragraph.textContent = "You had one job. One button. One click.";
+      speak("You lost the world's easiest game. That's impressive.");
+      fakeCursor.style.display = 'none';
+      guardianCursor.style.display = 'none';
+      document.getElementById('restart-btn').style.display = 'block';
+    }
+
+    document.addEventListener('mousemove', guardButton);
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        const touch = e.touches[0];
+        guardButton({ clientX: touch.clientX, clientY: touch.clientY });
+
+        // Move guardian on touch
+        const dx = touch.clientX;
+        const dy = touch.clientY;
+        const offsetX = (Math.random() - 0.5) * 30;
+        const offsetY = (Math.random() - 0.5) * 30;
+        guardianCursor.style.left = `${dx + offsetX}px`;
+        guardianCursor.style.top = `${dy + offsetY}px`;
+      }
+    });
+    function restartGame() {
+  location.reload(); // Reload the page to reset everything
+}
+  </script>
+</body>
+</html>
